@@ -12,7 +12,21 @@ val localProps = Properties().apply {
     if (f.exists()) f.inputStream().use { load(it) }
 }
 fun localProp(name: String, default: String): String =
-    (localProps.getProperty(name) ?: default).replace("\"", "\\\"")
+    (localProps.getProperty(name) ?: default).trim().replace("\"", "\\\"")
+
+/**
+ * URL del API sin espacios y terminada en "/". Si no tiene la forma
+ * http(s)://host/..., la compilación se detiene con un mensaje claro
+ * (antes la app se cerraba al abrir: Retrofit no acepta URLs inválidas).
+ */
+fun apiBaseUrl(): String {
+    var url = localProp("API_BASE_URL", "http://10.0.2.2/recetas_api/").replace(Regex("\\s+"), "")
+    if (!url.endsWith("/")) url += "/"
+    require(Regex("^https?://[A-Za-z0-9.\\-]+(:\\d+)?/.*").matches(url)) {
+        "API_BASE_URL en local.properties no es válida: \"$url\". Ejemplo: http://192.168.1.10/recetas_api/"
+    }
+    return url
+}
 
 android {
     namespace = "com.sergio.proyectov1"
@@ -32,8 +46,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         // 10.0.2.2 = la computadora vista desde el emulador de Android
-        buildConfigField("String", "API_BASE_URL",
-            "\"${localProp("API_BASE_URL", "http://10.0.2.2/recetas_api/")}\"")
+        buildConfigField("String", "API_BASE_URL", "\"${apiBaseUrl()}\"")
         buildConfigField("String", "USDA_API_KEY",
             "\"${localProp("USDA_API_KEY", "DEMO_KEY")}\"")
     }
