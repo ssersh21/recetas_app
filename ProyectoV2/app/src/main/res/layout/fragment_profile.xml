@@ -466,6 +466,42 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
+            <!-- Utensilios especiales que tiene el usuario (usuario_utensilio) -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Mis utensilios especiales"
+                        android:textStyle="bold"
+                        android:textSize="16sp" />
+
+                    <TextView
+                        android:id="@+id/tv_my_utensils"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="Solo los poco comunes (freidora de aire, batidora...). Así te recomendamos recetas que sí puedes preparar." />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_my_utensils"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="Elegir utensilios" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
             <!-- Resultados del cálculo -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/layout_results"

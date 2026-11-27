@@ -59,6 +59,30 @@ public final class RecipeMapper {
         recipe.setDescription(dto.descripcion);
         recipe.setImageUrl(dto.imagen);
         recipe.setRating(dto.calificacion_promedio, dto.total_calificaciones);
+        recipe.setOwnerId(dto.id_usuario);
+        recipe.setAuthor(dto.autor);
+        recipe.setSource(dto);
+
+        // El servidor guarda los valores por porción; Recipe guarda los totales
+        if (dto.calorias_porcion != null && dto.calorias_porcion > 0) {
+            int p = Math.max(1, dto.porciones);
+            recipe.setCalories(dto.calorias_porcion * p);
+            recipe.setProtein(valueOrZero(dto.proteinas_porcion) * p);
+            recipe.setCarbs(valueOrZero(dto.carbohidratos_porcion) * p);
+            recipe.setFats(valueOrZero(dto.grasas_porcion) * p);
+        }
+
+        List<String> tags = new ArrayList<>();
+        if (dto.etiquetas != null) {
+            for (RecipeDto.Etiqueta e : dto.etiquetas) tags.add(e.nombre);
+        }
+        recipe.setTags(tags);
+
+        List<String> utensils = new ArrayList<>();
+        if (dto.utensilios != null) {
+            for (RecipeDto.Utensilio u : dto.utensilios) utensils.add(u.nombre);
+        }
+        recipe.setUtensils(utensils);
 
         return recipe;
     }
@@ -78,8 +102,12 @@ public final class RecipeMapper {
         }
     }
 
+    private static double valueOrZero(Double d) {
+        return d == null ? 0 : d;
+    }
+
     /** 500.0 -> "500", 0.5 -> "0.5" */
-    static String formatQuantity(double value) {
+    public static String formatQuantity(double value) {
         if (value == Math.rint(value)) {
             return String.valueOf((long) value);
         }

@@ -42,7 +42,8 @@ public class RecipeAdapter extends RecyclerView.Adapter<RecipeAdapter.RecipeView
         Recipe recipe = recipes.get(position);
         holder.tvTitle.setText(recipe.getTitle());
         holder.tvTime.setText(recipe.getTime());
-        holder.ivThumb.setImageResource(recipe.getImageRes());
+        // Imagen subida por el autor (o el ícono por defecto)
+        com.sergio.proyectov1.api.ApiHelper.loadImage(holder.ivThumb, recipe.getImageUrl(), recipe.getImageRes());
 
         // Promedio real de la tabla calificacion (lo envía recetas.php)
         float rating = (float) recipe.getRatingAverage();

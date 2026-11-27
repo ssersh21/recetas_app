@@ -60,7 +60,8 @@ public class AdminRecipeAdapter extends RecyclerView.Adapter<AdminRecipeAdapter.
         Recipe recipe = recipes.get(position);
         holder.tvTitle.setText(recipe.getTitle());
         holder.tvSubtitle.setText(recipe.getTime() + " | " + recipe.getPortions());
-        holder.ivThumb.setImageResource(recipe.getImageRes());
+        // Imagen subida por el autor (o el ícono por defecto)
+        com.sergio.proyectov1.api.ApiHelper.loadImage(holder.ivThumb, recipe.getImageUrl(), recipe.getImageRes());
 
         if (showReportBadge) {
             holder.tvReports.setVisibility(View.VISIBLE);

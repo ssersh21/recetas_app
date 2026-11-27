@@ -165,13 +165,26 @@
                     android:textColor="@color/green_normal"
                     android:layout_marginBottom="12dp"/>
 
+                <!-- Se eligen del catálogo de utensilios (no se escriben) -->
                 <EditText
                     android:id="@+id/et_utensils"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:hint="@string/hint_utensils"
-                    android:inputType="textMultiLine"
+                    android:inputType="none"
+                    android:focusable="false"
+                    android:cursorVisible="false"
+                    android:clickable="true"
                     android:minLines="2"
+                    android:layout_marginBottom="8dp"/>
+
+                <EditText
+                    android:id="@+id/et_tags"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="@string/hint_tags"
+                    android:inputType="textCapWords"
+                    android:maxLength="200"
                     android:layout_marginBottom="16dp"/>
 
                 <TextView

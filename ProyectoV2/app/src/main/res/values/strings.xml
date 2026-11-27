@@ -8,7 +8,8 @@
     <string name="hint_optional_ingredients">Ingredientes Complementarios (Opcionales)</string>
     <string name="hint_portions">Porciones</string>
     <string name="hint_time">Tiempo estimado (ej. 45 min)</string>
-    <string name="hint_utensils">Utensilios principales</string>
+    <string name="hint_utensils">Utensilios especiales (toca para elegir)</string>
+    <string name="hint_tags">Etiquetas (separadas por coma, ej. Mexicana, Vegetariana)</string>
     <string name="hint_steps">Pasos de elaboración</string>
     <string name="btn_save_recipe">Guardar Receta</string>
     <string name="btn_select_image">Seleccionar Imagen</string>

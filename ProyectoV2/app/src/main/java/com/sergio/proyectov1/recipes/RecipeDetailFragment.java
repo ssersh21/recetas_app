@@ -16,8 +16,21 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AlertDialog;
 
+import android.widget.LinearLayout;
+
+import com.google.android.material.chip.Chip;
+import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.android.material.textfield.TextInputEditText;
+import com.google.android.material.textfield.TextInputLayout;
+import com.sergio.proyectov1.api.ApiHelper;
 import com.sergio.proyectov1.feedback.RecipeFeedbackStore;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import java.util.HashMap;
+import java.util.Map;
 
 import java.util.Locale;
 
@@ -77,7 +90,7 @@ public class RecipeDetailFragment extends Fragment {
         nutritionViewModel = new ViewModelProvider(this).get(NutritionViewModel.class);
 
         if (recipe != null) {
-            ivImage.setImageResource(recipe.getImageRes());
+            ApiHelper.loadImage(ivImage, recipe.getImageUrl(), recipe.getImageRes());
             tvTitle.setText(recipe.getTitle());
             tvTime.setText(recipe.getTime());
             tvPortions.setText(recipe.getPortions());
@@ -101,12 +114,211 @@ public class RecipeDetailFragment extends Fragment {
         });
 
         setupFeedback(view);
+        if (recipe != null) {
+            showAuthorTagsAndUtensils(view);
+            setupComments(view);
+            setupOwnerMenu(toolbar);
+        }
 
         toolbar.setNavigationOnClickListener(v -> {
             if (getActivity() != null) {
                 getActivity().getSupportFragmentManager().popBackStack();
             }
         });
+    }
+
+    // ============================================================
+    // Autor, etiquetas y utensilios
+    // ============================================================
+
+    private void showAuthorTagsAndUtensils(View view) {
+        TextView tvAuthor = view.findViewById(R.id.tv_detail_author);
+        if (recipe.getAuthor() != null && !recipe.getAuthor().isEmpty()) {
+            tvAuthor.setText("Por " + recipe.getAuthor());
+            tvAuthor.setVisibility(View.VISIBLE);
+        }
+
+        ChipGroup chips = view.findViewById(R.id.chip_detail_tags);
+        chips.removeAllViews();
+        for (String tag : recipe.getTags()) {
+            Chip chip = new Chip(requireContext());
+            chip.setText(tag);
+            chip.setClickable(false);
+            chips.addView(chip);
+        }
+        chips.setVisibility(recipe.getTags().isEmpty() ? View.GONE : View.VISIBLE);
+
+        if (!recipe.getUtensils().isEmpty()) {
+            TextView title = view.findViewById(R.id.tv_detail_utensils_title);
+            TextView list = view.findViewById(R.id.tv_detail_utensils);
+            StringBuilder sb = new StringBuilder();
+            for (String u : recipe.getUtensils()) {
+                if (sb.length() > 0) sb.append("\n");
+                sb.append("• ").append(u);
+            }
+            list.setText(sb);
+            title.setVisibility(View.VISIBLE);
+            list.setVisibility(View.VISIBLE);
+        }
+    }
+
+    // ============================================================
+    // Editar / eliminar (solo el autor)
+    // ============================================================
+
+    private void setupOwnerMenu(Toolbar toolbar) {
+        int me = ApiHelper.userId(requireContext());
+        if (recipe.getId() <= 0 || me <= 0 || recipe.getOwnerId() != me) return;
+
+        toolbar.inflateMenu(R.menu.recipe_owner_menu);
+        toolbar.setOnMenuItemClickListener(item -> {
+            if (item.getItemId() == R.id.action_edit_recipe) {
+                if (recipe.getSource() == null) {
+                    Toast.makeText(requireContext(), "Vuelve a abrir la receta desde el inicio para editarla",
+                            Toast.LENGTH_LONG).show();
+                    return true;
+                }
+                getParentFragmentManager().beginTransaction()
+                        .replace(R.id.frame_container, CreateRecipeFragment.newInstanceForEdit(recipe.getSource()))
+                        .addToBackStack(null)
+                        .commit();
+                return true;
+            }
+            if (item.getItemId() == R.id.action_delete_recipe) {
+                confirmDelete();
+                return true;
+            }
+            return false;
+        });
+    }
+
+    private void confirmDelete() {
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle("¿Eliminar \"" + recipe.getTitle() + "\"?")
+                .setMessage("También se borrarán sus comentarios, calificaciones y su lugar en los planes. "
+                        + "Esta acción no se puede deshacer.")
+                .setNegativeButton("Cancelar", null)
+                .setPositiveButton("Eliminar", (d, w) -> {
+                    Map<String, String> p = new HashMap<>();
+                    p.put("id_usuario", String.valueOf(ApiHelper.userId(requireContext())));
+                    p.put("id_receta", String.valueOf(recipe.getId()));
+                    ApiHelper.post(requireContext(), "eliminar_receta.php", p, (ok, message, body) -> {
+                        if (!isAdded()) return;
+                        Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show();
+                        if (ok) getParentFragmentManager().popBackStack();
+                    });
+                })
+                .show();
+    }
+
+    // ============================================================
+    // Comentarios (tabla comentario)
+    // ============================================================
+
+    private LinearLayout commentsContainer;
+    private TextView tvCommentsEmpty;
+
+    private void setupComments(View view) {
+        commentsContainer = view.findViewById(R.id.container_comments);
+        tvCommentsEmpty = view.findViewById(R.id.tv_detail_comments_empty);
+        TextInputLayout til = view.findViewById(R.id.til_comment);
+        TextInputEditText et = view.findViewById(R.id.et_comment);
+        ImageButton btnSend = view.findViewById(R.id.btn_send_comment);
+
+        if (recipe.getId() <= 0) {
+            til.setEnabled(false);
+            btnSend.setEnabled(false);
+            tvCommentsEmpty.setText("Esta receta todavía no está publicada");
+            return;
+        }
+
+        btnSend.setOnClickListener(v -> {
+            String text = et.getText() == null ? "" : et.getText().toString().trim();
+            if (text.isEmpty()) {
+                til.setError("Escribe un comentario");
+                return;
+            }
+            til.setError(null);
+            btnSend.setEnabled(false);
+            Map<String, String> p = new HashMap<>();
+            p.put("accion", "crear");
+            p.put("id_usuario", String.valueOf(ApiHelper.userId(requireContext())));
+            p.put("id_receta", String.valueOf(recipe.getId()));
+            p.put("comentario", text);
+            ApiHelper.post(requireContext(), "comentarios.php", p, (ok, message, body) -> {
+                if (!isAdded()) return;
+                btnSend.setEnabled(true);
+                if (ok) {
+                    et.setText("");
+                    loadComments();
+                } else {
+                    til.setError(message);
+                }
+            });
+        });
+
+        loadComments();
+    }
+
+    private void loadComments() {
+        ApiHelper.get(requireContext(), "comentarios.php?id_receta=" + recipe.getId(), (ok, message, body) -> {
+            if (!isAdded()) return;
+            commentsContainer.removeAllViews();
+            if (!ok || body == null) {
+                tvCommentsEmpty.setText(message);
+                tvCommentsEmpty.setVisibility(View.VISIBLE);
+                return;
+            }
+            try {
+                JSONArray array = new JSONArray(body);
+                int me = ApiHelper.userId(requireContext());
+                LayoutInflater inflater = LayoutInflater.from(requireContext());
+                for (int i = 0; i < array.length(); i++) {
+                    JSONObject c = array.getJSONObject(i);
+                    View row = inflater.inflate(R.layout.item_comment, commentsContainer, false);
+                    ((TextView) row.findViewById(R.id.tv_comment_author)).setText(c.optString("autor"));
+                    ((TextView) row.findViewById(R.id.tv_comment_text)).setText(c.optString("comentario"));
+                    ((TextView) row.findViewById(R.id.tv_comment_date)).setText(prettyDate(c.optString("fecha")));
+                    if (c.optInt("id_usuario") == me) {
+                        View btnDelete = row.findViewById(R.id.btn_delete_comment);
+                        btnDelete.setVisibility(View.VISIBLE);
+                        int commentId = c.optInt("id_comentario");
+                        btnDelete.setOnClickListener(v -> deleteComment(commentId));
+                    }
+                    commentsContainer.addView(row);
+                }
+                tvCommentsEmpty.setText("Sé el primero en comentar");
+                tvCommentsEmpty.setVisibility(array.length() == 0 ? View.VISIBLE : View.GONE);
+            } catch (Exception e) {
+                tvCommentsEmpty.setText("No se pudieron cargar los comentarios");
+                tvCommentsEmpty.setVisibility(View.VISIBLE);
+            }
+        });
+    }
+
+    private void deleteComment(int commentId) {
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle("¿Borrar tu comentario?")
+                .setNegativeButton("Cancelar", null)
+                .setPositiveButton("Borrar", (d, w) -> {
+                    Map<String, String> p = new HashMap<>();
+                    p.put("accion", "eliminar");
+                    p.put("id_usuario", String.valueOf(ApiHelper.userId(requireContext())));
+                    p.put("id_comentario", String.valueOf(commentId));
+                    ApiHelper.post(requireContext(), "comentarios.php", p, (ok, message, body) -> {
+                        if (!isAdded()) return;
+                        if (!ok) Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show();
+                        loadComments();
+                    });
+                })
+                .show();
+    }
+
+    /** "2026-11-27 09:25:51" -> "27/11/2026" */
+    private static String prettyDate(String sqlDate) {
+        if (sqlDate == null || sqlDate.length() < 10) return "";
+        String[] p = sqlDate.substring(0, 10).split("-");
+        return p.length == 3 ? p[2] + "/" + p[1] + "/" + p[0] : sqlDate;
     }
 
     // ============================================================

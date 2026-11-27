@@ -25,6 +25,7 @@ import com.sergio.proyectov1.pantry.StockListFragment;
 import com.sergio.proyectov1.personalization.ProfileStore;
 import com.sergio.proyectov1.plan.PlanStore;
 import com.sergio.proyectov1.plan.PlannedMeal;
+import android.widget.Toast;
 import com.sergio.proyectov1.viewmodels.RecipeViewModel;
 
 import java.util.ArrayList;
@@ -129,7 +130,23 @@ public class PlanFragment extends Fragment {
         }
         cardNoProfile.setVisibility(View.GONE);
 
-        Map<String, PlannedMeal> day = planStore.getDay(selectedDate);
+        // El plan está en el servidor; se ignora la respuesta si el usuario ya cambió de día
+        final String requestedDate = selectedDate;
+        tvSummary.setVisibility(View.VISIBLE);
+        tvSummary.setText("Cargando plan...");
+        planStore.getDay(requestedDate, (day, error) -> {
+            if (!isAdded() || !requestedDate.equals(selectedDate)) return;
+            if (day == null) {
+                tvSummary.setText(error);
+                progress.setVisibility(View.GONE);
+                return;
+            }
+            showDay(day);
+        });
+    }
+
+    private void showDay(Map<String, PlannedMeal> day) {
+        slotsContainer.removeAllViews();
         double total = 0;
         LayoutInflater inflater = LayoutInflater.from(requireContext());
 
@@ -147,15 +164,31 @@ public class PlanFragment extends Fragment {
                 btnRemove.setVisibility(View.GONE);
             } else {
                 total += meal.getCalories();
-                tvRecipe.setText(meal.getCalories() > 0
-                        ? String.format(Locale.getDefault(), "%s · %.0f kcal", meal.getTitle(), meal.getCalories())
-                        : meal.getTitle());
+                StringBuilder text = new StringBuilder();
+                if (meal.isCooked()) text.append("✓ ");
+                if (meal.getTime() != null) text.append(meal.getTime()).append(" · ");
+                text.append(meal.getTitle());
+                if (meal.getCalories() > 0) {
+                    text.append(String.format(Locale.getDefault(), " · %.0f kcal", meal.getCalories()));
+                }
+                tvRecipe.setText(text);
+                tvRecipe.setContentDescription(text + (meal.isCooked()
+                        ? ". Cocinada. Toca para marcarla como pendiente"
+                        : ". Toca para marcarla como cocinada"));
+                // Tocar la receta la marca como cocinada (historial) o pendiente
+                tvRecipe.setOnClickListener(v -> planStore.setCooked(selectedDate, slot, !meal.isCooked(),
+                        (ok, message) -> {
+                            if (!isAdded()) return;
+                            Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show();
+                            renderDay();
+                        }));
                 btnPick.setText("Cambiar");
                 btnRemove.setVisibility(View.VISIBLE);
-                btnRemove.setOnClickListener(v -> {
-                    planStore.remove(selectedDate, slot);
+                btnRemove.setOnClickListener(v -> planStore.remove(selectedDate, slot, (ok, message) -> {
+                    if (!isAdded()) return;
+                    if (!ok) Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show();
                     renderDay();
-                });
+                }));
             }
             btnPick.setOnClickListener(v -> pickRecipe(slot));
             slotsContainer.addView(row);
@@ -196,13 +229,36 @@ public class PlanFragment extends Fragment {
         }
         new MaterialAlertDialogBuilder(requireContext())
                 .setTitle(slot)
-                .setItems(titles, (d, which) -> {
-                    Recipe r = recipes.get(which);
-                    planStore.set(selectedDate, slot,
-                            new PlannedMeal(r.getId(), r.getTitle(), r.getCalories()));
-                    renderDay();
-                })
+                .setItems(titles, (d, which) -> askTimeAndSave(slot, recipes.get(which)))
                 .setNegativeButton("Cancelar", null)
                 .show();
+    }
+
+    /** Hora opcional para la receta programada (RQ: fecha y hora específicas). */
+    private void askTimeAndSave(String slot, Recipe recipe) {
+        String date = selectedDate;
+        PlanStore.ResultCallback done = (ok, message) -> {
+            if (!isAdded()) return;
+            Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show();
+            renderDay();
+        };
+        android.app.TimePickerDialog picker = new android.app.TimePickerDialog(requireContext(),
+                (view, hour, minute) -> planStore.set(date, slot, recipe.getId(),
+                        String.format(Locale.US, "%02d:%02d", hour, minute), done),
+                defaultHour(slot), 0, true);
+        picker.setTitle("¿A qué hora? (" + slot + ")");
+        picker.setButton(android.content.DialogInterface.BUTTON_NEUTRAL, "Sin hora",
+                (dlg, w) -> planStore.set(date, slot, recipe.getId(), null, done));
+        picker.show();
+    }
+
+    private static int defaultHour(String slot) {
+        switch (slot) {
+            case "Desayuno": return 8;
+            case "Colación matutina": return 11;
+            case "Comida": return 14;
+            case "Colación vespertina": return 17;
+            default: return 20;
+        }
     }
 }

@@ -19,7 +19,15 @@ public class Recipe implements Serializable {
     private double ratingAverage;
     private int ratingCount;
     
-    // Macronutrients
+    // Autor, etiquetas y utensilios (vienen de recetas.php)
+    private int ownerId;
+    private String author;
+    private java.util.List<String> tags = new java.util.ArrayList<>();
+    private java.util.List<String> utensils = new java.util.ArrayList<>();
+    /** Datos completos tal como llegaron del servidor (para editar la receta). */
+    private RecipeDto source;
+
+    // Macronutrientes TOTALES de la receta (RecipeDetailFragment los divide entre las porciones)
     private double calories;
     private double protein;
     private double carbs;
@@ -32,6 +40,31 @@ public class Recipe implements Serializable {
         this.portions = portions;
         this.ingredients = ingredients;
         this.steps = steps;
+    }
+
+    public int getOwnerId() { return ownerId; }
+    public void setOwnerId(int ownerId) { this.ownerId = ownerId; }
+
+    public String getAuthor() { return author; }
+    public void setAuthor(String author) { this.author = author; }
+
+    public java.util.List<String> getTags() { return tags; }
+    public void setTags(java.util.List<String> tags) { this.tags = tags; }
+    public boolean hasTag(String tag) {
+        for (String t : tags) if (t.equalsIgnoreCase(tag)) return true;
+        return false;
+    }
+
+    public java.util.List<String> getUtensils() { return utensils; }
+    public void setUtensils(java.util.List<String> utensils) { this.utensils = utensils; }
+
+    public RecipeDto getSource() { return source; }
+    public void setSource(RecipeDto source) { this.source = source; }
+
+    /** Calorías de UNA porción (0 si no se han calculado). */
+    public double getCaloriesPerPortion() {
+        int p = getPortionsCount();
+        return p > 0 ? calories / p : calories;
     }
 
     public String getDifficulty() { return difficulty; }

@@ -2,6 +2,10 @@ package com.sergio.proyectov1.recipes;
 
 import com.sergio.proyectov1.api.VolleySingleton;
 import com.sergio.proyectov1.models.Recipe;
+import com.sergio.proyectov1.models.RecipeDto;
+import com.sergio.proyectov1.models.RecipeMapper;
+import com.sergio.proyectov1.api.ApiHelper;
+import androidx.annotation.Nullable;
 import com.sergio.proyectov1.viewmodels.NutritionViewModel;
 import com.sergio.proyectov1.R;
 
@@ -52,7 +56,42 @@ import org.json.JSONObject;
 
 
 
+/**
+ * Crear una receta nueva o, con {@link #newInstanceForEdit}, editar una receta propia.
+ * Al guardar: calcula la nutrición por porción (USDA), sube la imagen si se eligió
+ * una nueva y manda todo a guardar_receta.php / editar_receta.php.
+ */
 public class CreateRecipeFragment extends Fragment {
+
+    private static final String ARG_EDIT = "receta_a_editar";
+
+    /** Abre el formulario lleno con una receta propia para editarla. */
+    public static CreateRecipeFragment newInstanceForEdit(RecipeDto recipe) {
+        CreateRecipeFragment f = new CreateRecipeFragment();
+        Bundle b = new Bundle();
+        b.putSerializable(ARG_EDIT, recipe);
+        f.setArguments(b);
+        return f;
+    }
+
+    /** Receta que se está editando (null = receta nueva). */
+    @Nullable
+    private RecipeDto editing;
+
+    // Imagen: la nueva que eligió el usuario o la que ya tenía la receta en el servidor
+    @Nullable
+    private android.net.Uri selectedImageUri;
+    @Nullable
+    private String existingImagePath;
+
+    // Utensilios elegidos del catálogo (id -> nombre)
+    private final java.util.LinkedHashMap<Integer, String> selectedUtensils = new java.util.LinkedHashMap<>();
+
+    private EditText etTags;
+    private boolean saving = false;
+    /** Datos listos para enviar mientras se calcula la nutrición. */
+    @Nullable
+    private JSONObject pendingRequest;
 
     private EditText etName, etPortions, etTime, etUtensils;
     private LinearLayout containerIngredients, containerCondiments, containerSteps;
@@ -79,6 +118,7 @@ public class CreateRecipeFragment extends Fragment {
     ActivityResultLauncher<PickVisualMediaRequest> pickMedia =
             registerForActivityResult(new ActivityResultContracts.PickVisualMedia(), uri -> {
                 if (uri != null) {
+                    selectedImageUri = uri;
                     ivRecipeImage.setImageURI(uri);
                 } else {
                     showToast("No se seleccionó ninguna imagen");
@@ -143,15 +183,160 @@ public class CreateRecipeFragment extends Fragment {
 
         btnSave.setOnClickListener(v -> saveRecipe());
 
-        // Añadir una fila inicial por defecto
-        addIngredientRow();
-        addCondimentRow();
-        addStepRow();
+        etTags = view.findViewById(R.id.et_tags);
+        etUtensils.setOnClickListener(v -> showUtensilSelector());
+
+        // Cuando termina el cálculo nutricional se envía la receta
+        nutritionViewModel.getTotalNutrition().observe(getViewLifecycleOwner(), nutrition -> {
+            if (pendingRequest == null || nutrition == null) return;
+            JSONObject request = pendingRequest;
+            pendingRequest = null;
+            putNutrition(request, nutrition);
+            uploadImageThenSend(request);
+        });
+
+        if (getArguments() != null) {
+            editing = (RecipeDto) getArguments().getSerializable(ARG_EDIT);
+        }
+
+        if (editing != null) {
+            fillForEdit(editing);
+        } else {
+            // Añadir una fila inicial por defecto
+            addIngredientRow();
+            addCondimentRow();
+            addStepRow();
+        }
 
         return view;
     }
 
-    private void addIngredientRow() {
+    // ============================================================
+    // Edición: llenar el formulario con la receta existente
+    // ============================================================
+
+    private void fillForEdit(RecipeDto r) {
+        btnSave.setText("Guardar cambios");
+        etName.setText(r.nombre);
+        etPortions.setText(String.valueOf(r.porciones));
+        etTime.setText(String.valueOf(r.tiempo_estimado));
+
+        existingImagePath = r.imagen == null || r.imagen.isEmpty() ? null : r.imagen;
+        ApiHelper.loadImage(ivRecipeImage, existingImagePath, android.R.drawable.ic_menu_gallery);
+
+        if (r.ingredientes != null) {
+            for (RecipeDto.Item item : r.ingredientes) {
+                View row = addIngredientRow();
+                Ingredient ing = new Ingredient(item.id_ingrediente, item.nombre);
+                row.setTag(ing);
+                ((TextView) row.findViewById(R.id.tv_selected_ingredient)).setText(item.nombre);
+                ((EditText) row.findViewById(R.id.et_ingredient_quantity)).setText(RecipeMapper.formatQuantity(item.cantidad));
+                Spinner type = row.findViewById(R.id.spinner_ingredient_type);
+                if (type != null) type.setSelection("complementario".equals(item.tipo) ? 1 : 0);
+                loadUnitsForRow(row, R.id.spinner_unit, ing, FoodUnitHelper.TIPO_INGREDIENTE, item.unidad);
+            }
+        }
+        if (r.condimentos != null) {
+            for (RecipeDto.Item item : r.condimentos) {
+                View row = addCondimentRow();
+                if (row == null) break;
+                Ingredient cond = new Ingredient(item.id_especia, item.nombre);
+                cond.setId_condimento(item.id_especia);
+                row.setTag(cond);
+                ((TextView) row.findViewById(R.id.tv_selected_condiment)).setText(item.nombre);
+                ((EditText) row.findViewById(R.id.et_condiment_quantity)).setText(RecipeMapper.formatQuantity(item.cantidad));
+                loadUnitsForRow(row, R.id.spinner_condiment_unit, cond, FoodUnitHelper.TIPO_ESPECIA, item.unidad);
+            }
+        }
+        if (r.pasos != null) {
+            for (RecipeDto.Paso paso : r.pasos) {
+                View row = addStepRow();
+                ((EditText) row.findViewById(R.id.et_step_description)).setText(paso.descripcion);
+            }
+        }
+        if (containerIngredients.getChildCount() == 0) addIngredientRow();
+        if (containerSteps.getChildCount() == 0) addStepRow();
+
+        if (r.utensilios != null) {
+            for (RecipeDto.Utensilio u : r.utensilios) selectedUtensils.put(u.id_utensilio, u.nombre);
+        }
+        showSelectedUtensils();
+
+        // Solo las etiquetas que puso el usuario; las automáticas las vuelve a calcular el servidor
+        StringBuilder tags = new StringBuilder();
+        if (r.etiquetas != null) {
+            for (RecipeDto.Etiqueta e : r.etiquetas) {
+                if (e.automatica) continue;
+                if (tags.length() > 0) tags.append(", ");
+                tags.append(e.nombre);
+            }
+        }
+        etTags.setText(tags);
+    }
+
+    /** Consulta en la BD las medidas del alimento y las pone en el spinner de la fila. */
+    private void loadUnitsForRow(View row, int spinnerId, Ingredient food, String tipo, String selectedUnit) {
+        FoodUnitHelper.loadUnits(tipo, FoodUnitHelper.CONTEXTO_RECETA, food.getNombre(), units -> {
+            if (!isAdded()) return;
+            food.setUnidadesReceta(units);
+            Spinner spinner = row.findViewById(spinnerId);
+            if (spinner == null || units.isEmpty()) {
+                showToast(FoodUnitHelper.UNITS_NOT_LOADED);
+                return;
+            }
+            ArrayAdapter<String> adapter = new ArrayAdapter<>(requireContext(),
+                    android.R.layout.simple_spinner_item, units);
+            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+            spinner.setAdapter(adapter);
+            int index = units.indexOf(selectedUnit);
+            if (index >= 0) spinner.setSelection(index);
+        });
+    }
+
+    // ============================================================
+    // Utensilios (catálogo de utensilios.php)
+    // ============================================================
+
+    private void showUtensilSelector() {
+        ApiHelper.get(requireContext(), "utensilios.php", (ok, message, body) -> {
+            if (!isAdded()) return;
+            if (!ok || body == null) {
+                showToast(message);
+                return;
+            }
+            try {
+                JSONArray array = new JSONArray(body);
+                int n = array.length();
+                int[] ids = new int[n];
+                String[] names = new String[n];
+                boolean[] checked = new boolean[n];
+                for (int i = 0; i < n; i++) {
+                    JSONObject u = array.getJSONObject(i);
+                    ids[i] = u.getInt("id_utensilio");
+                    names[i] = u.getString("nombre");
+                    checked[i] = selectedUtensils.containsKey(ids[i]);
+                }
+                new com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+                        .setTitle("Utensilios especiales")
+                        .setMultiChoiceItems(names, checked, (d, which, isChecked) -> checked[which] = isChecked)
+                        .setNegativeButton("Cancelar", null)
+                        .setPositiveButton("Listo", (d, w) -> {
+                            selectedUtensils.clear();
+                            for (int i = 0; i < n; i++) if (checked[i]) selectedUtensils.put(ids[i], names[i]);
+                            showSelectedUtensils();
+                        })
+                        .show();
+            } catch (Exception e) {
+                showToast("No se pudo cargar la lista de utensilios");
+            }
+        });
+    }
+
+    private void showSelectedUtensils() {
+        etUtensils.setText(selectedUtensils.isEmpty() ? "" : String.join(", ", selectedUtensils.values()));
+    }
+
+    private View addIngredientRow() {
 
         View row = getLayoutInflater()
                 .inflate(
@@ -226,6 +411,7 @@ public class CreateRecipeFragment extends Fragment {
         );
 
         containerIngredients.addView(row);
+        return row;
     }
 
     private void showIngredientSelector(View row) {
@@ -341,8 +527,8 @@ public class CreateRecipeFragment extends Fragment {
         ingredientViewModel.buscarIngredientes("");
     }
 
-    private void addCondimentRow() {
-        if (containerCondiments == null) return;
+    private View addCondimentRow() {
+        if (containerCondiments == null) return null;
 
         View row = getLayoutInflater().inflate(R.layout.item_condiment_row, null);
 
@@ -391,6 +577,7 @@ public class CreateRecipeFragment extends Fragment {
         }
 
         containerCondiments.addView(row);
+        return row;
     }
 
     private void showCondimentSelector(View row) {
@@ -458,7 +645,7 @@ public class CreateRecipeFragment extends Fragment {
         ingredientViewModel.buscarCondimentos("");
     }
 
-    private void addStepRow() {
+    private View addStepRow() {
         stepCount++;
         View row = getLayoutInflater().inflate(R.layout.item_step_row, null);
 
@@ -472,6 +659,7 @@ public class CreateRecipeFragment extends Fragment {
         });
 
         containerSteps.addView(row);
+        return row;
     }
 
     private void updateStepNumbers() {
@@ -485,6 +673,12 @@ public class CreateRecipeFragment extends Fragment {
     }
 
     private void saveRecipe() {
+
+        if (saving) return; // ya se está guardando
+        if (ApiHelper.userId(requireContext()) <= 0) {
+            showToast("Inicia sesión para guardar recetas");
+            return;
+        }
 
         // Obtener datos generales de la receta
         String name = etName.getText().toString().trim();
@@ -775,43 +969,27 @@ public class CreateRecipeFragment extends Fragment {
                         .append(step);
             }
         }
+        if (stepsList.isEmpty()) {
+            showToast("Agrega al menos un paso");
+            return;
+        }
 
         // ============================================================
-        // CREAR RECETA
-        // ============================================================
-
-        Recipe recipe = new Recipe(
-                name,
-                time + " min",
-                android.R.drawable.ic_menu_gallery,
-                portions + " personas",
-                ingredientsStr.toString(),
-                stepsStr.toString()
-        );
-
-        // ============================================================
-        // GUARDAR EN BASE DE DATOS MEDIANTE VOLLEY (guardar_receta.php)
+        // ARMAR LA PETICIÓN (guardar_receta.php / editar_receta.php)
         // ============================================================
 
         DifficultyCalculator.Result difficulty = DifficultyCalculator.calcular(stepsList);
+        List<NutritionViewModel.IngredientData> nutritionInput = new ArrayList<>();
 
         try {
             JSONObject requestJson = new JSONObject();
-
-            int userId = 1;
-            if (getContext() != null) {
-                SharedPreferences prefs = requireContext().getSharedPreferences("AppPrefs", Context.MODE_PRIVATE);
-                userId = prefs.getInt("user_id", 1);
-                if (userId <= 0) userId = 1;
-            }
-
-            requestJson.put("id_usuario", userId);
+            requestJson.put("id_usuario", ApiHelper.userId(requireContext()));
+            if (editing != null) requestJson.put("id_receta", editing.id_receta);
             requestJson.put("nombre", name);
             requestJson.put("porciones", portions);
             requestJson.put("tiempo_estimado", time);
             requestJson.put("nivel_dificultad", difficulty.nivel != null ? difficulty.nivel.toLowerCase() : "principiante");
-            requestJson.put("descripcion", utensils);
-            requestJson.put("imagen", "");
+            requestJson.put("descripcion", "");
 
             // Ingredientes
             JSONArray jsonIngredientes = new JSONArray();
@@ -823,15 +1001,19 @@ public class CreateRecipeFragment extends Fragment {
                 Spinner spType = row.findViewById(R.id.spinner_ingredient_type);
 
                 if (ing != null && etQty != null && spUnit != null) {
+                    String unit = spUnit.getSelectedItem().toString();
+                    double qty = "Al gusto".equalsIgnoreCase(unit) ? 0 : parseQuantity(etQty);
                     JSONObject item = new JSONObject();
                     item.put("id_ingrediente", ing.getId_ingrediente());
-                    item.put("cantidad", Double.parseDouble(etQty.getText().toString().trim()));
-                    item.put("unidad", spUnit.getSelectedItem().toString());
+                    item.put("cantidad", qty);
+                    item.put("unidad", unit);
                     String typeStr = (spType != null && spType.getSelectedItem() != null)
                             ? spType.getSelectedItem().toString().toLowerCase()
                             : "principal";
                     item.put("tipo", typeStr.contains("complementario") ? "complementario" : "principal");
                     jsonIngredientes.put(item);
+                    nutritionInput.add(new NutritionViewModel.IngredientData(
+                            ing.getNombre(), toGrams(qty, unit), qty <= 0));
                 }
             }
             requestJson.put("ingredientes", jsonIngredientes);
@@ -846,10 +1028,11 @@ public class CreateRecipeFragment extends Fragment {
                     Spinner spUnit = row.findViewById(R.id.spinner_condiment_unit);
 
                     if (cond != null && etQty != null && spUnit != null) {
+                        String unit = spUnit.getSelectedItem().toString();
                         JSONObject item = new JSONObject();
                         item.put("id_especia", cond.getId_ingrediente());
-                        item.put("cantidad", Double.parseDouble(etQty.getText().toString().trim()));
-                        item.put("unidad", spUnit.getSelectedItem().toString());
+                        item.put("cantidad", "Al gusto".equalsIgnoreCase(unit) ? 0 : parseQuantity(etQty));
+                        item.put("unidad", unit);
                         jsonCondimentos.put(item);
                     }
                 }
@@ -863,40 +1046,149 @@ public class CreateRecipeFragment extends Fragment {
             }
             requestJson.put("pasos", jsonPasos);
 
-            btnSave.setEnabled(false);
-            String url = VolleySingleton.BASE_URL + "guardar_receta.php";
+            // Utensilios (ids del catálogo)
+            JSONArray jsonUtensilios = new JSONArray();
+            for (Integer id : selectedUtensils.keySet()) jsonUtensilios.put(id);
+            requestJson.put("utensilios", jsonUtensilios);
 
-            JsonObjectRequest jsonRequest = new JsonObjectRequest(
-                    Request.Method.POST,
-                    url,
-                    requestJson,
-                    response -> {
-                        if (!isAdded()) return;
-                        btnSave.setEnabled(true);
-                        showToast("¡Receta guardada en la base de datos!");
-                        Log.d("RECETA", "Respuesta servidor: " + response.toString());
-                    },
-                    error -> {
-                        if (!isAdded()) return;
-                        btnSave.setEnabled(true);
-                        showToast("Receta creada (dificultad: " + difficulty.nivel + ")");
-                    }
-            );
+            // Etiquetas escritas por el usuario (el servidor agrega las automáticas)
+            JSONArray jsonEtiquetas = new JSONArray();
+            for (String tag : etTags.getText().toString().split(",")) {
+                if (!tag.trim().isEmpty()) jsonEtiquetas.put(tag.trim());
+            }
+            requestJson.put("etiquetas", jsonEtiquetas);
 
-            VolleySingleton.getInstance(requireContext()).addToRequestQueue(jsonRequest);
+            setSaving(true, "Calculando información nutricional...");
+            Log.d("RECETA", "Dificultad: " + difficulty + " | ingredientes:\n" + ingredientsStr);
 
+            // 1) Nutrición por porción con USDA -> 2) subir imagen -> 3) enviar receta
+            requestJson.put("porciones", portions);
+            pendingRequest = requestJson;
+            boolean anyToCalculate = false;
+            for (NutritionViewModel.IngredientData d : nutritionInput) {
+                if (!d.isToTaste && d.quantity > 0) anyToCalculate = true;
+            }
+            if (anyToCalculate) {
+                nutritionViewModel.calculateTotalNutrition(nutritionInput);
+            } else {
+                pendingRequest = null;
+                uploadImageThenSend(requestJson);
+            }
         } catch (JSONException e) {
-            e.printStackTrace();
-            showToast("Receta creada (dificultad: " + difficulty.nivel + ")");
+            setSaving(false, null);
+            showToast("No se pudo preparar la receta");
         }
+    }
 
-        Log.d("RECETA", "Dificultad: " + difficulty);
+    private static double parseQuantity(EditText et) {
+        try {
+            return Double.parseDouble(et.getText().toString().trim().replace(',', '.'));
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
 
-        Log.d("RECETA", "Nombre: " + name);
-        Log.d("RECETA", "Porciones: " + portions);
-        Log.d("RECETA", "Tiempo: " + time);
-        Log.d("RECETA", "Ingredientes:\n" + ingredientsStr);
-        Log.d("RECETA", "Pasos:\n" + stepsStr);
-        Log.d("RECETA", "Utensilios: " + utensils);
+    /** Conversión aproximada a gramos para consultar USDA (que da valores por 100 g). */
+    private static double toGrams(double qty, String unit) {
+        String u = unit.toLowerCase();
+        if (u.contains("kilogramo") || u.contains("litro")) return qty * 1000;
+        if (u.contains("taza")) return qty * 240;
+        if (u.contains("cucharadita")) return qty * 5;
+        if (u.contains("cucharada")) return qty * 15;
+        if (u.contains("pieza")) return qty * 100;
+        return qty; // gramos o mililitros
+    }
+
+    /** Agrega los valores POR PORCIÓN (si USDA no respondió, no se mandan). */
+    private void putNutrition(JSONObject request, NutritionViewModel.RecipeNutrition total) {
+        try {
+            int portions = Math.max(1, request.optInt("porciones", 1));
+            if (total.calories > 0) {
+                request.put("calorias_porcion", round2(total.calories / portions));
+                request.put("proteinas_porcion", round2(total.protein / portions));
+                request.put("carbohidratos_porcion", round2(total.carbs / portions));
+                request.put("grasas_porcion", round2(total.fats / portions));
+            }
+        } catch (JSONException ignored) {
+        }
+    }
+
+    private static double round2(double v) {
+        return Math.round(v * 100.0) / 100.0;
+    }
+
+    private void uploadImageThenSend(JSONObject request) {
+        if (!isAdded()) return;
+        if (selectedImageUri == null) {
+            putImage(request, existingImagePath);
+            sendRecipe(request);
+            return;
+        }
+        setSaving(true, "Subiendo imagen...");
+        ApiHelper.uploadImage(requireContext(), selectedImageUri, (ok, message, path) -> {
+            if (!isAdded()) return;
+            if (!ok) {
+                setSaving(false, null);
+                showToast(message);
+                return;
+            }
+            // Si se vuelve a intentar no se sube otra vez la misma imagen
+            selectedImageUri = null;
+            existingImagePath = path;
+            putImage(request, path);
+            sendRecipe(request);
+        });
+    }
+
+    private static void putImage(JSONObject request, @Nullable String path) {
+        try {
+            request.put("imagen", path == null ? "" : path);
+        } catch (JSONException ignored) {
+        }
+    }
+
+    private void sendRecipe(JSONObject request) {
+        setSaving(true, "Guardando...");
+        String endpoint = editing != null ? "editar_receta.php" : "guardar_receta.php";
+        ApiHelper.postJson(requireContext(), endpoint, request, (ok, message, body) -> {
+            if (!isAdded()) return;
+            setSaving(false, null);
+            showToast(message);
+            if (!ok) return;
+            if (editing != null) {
+                // Volver al inicio (el detalle que estaba abierto ya tiene datos viejos)
+                getParentFragmentManager().popBackStack(null,
+                        androidx.fragment.app.FragmentManager.POP_BACK_STACK_INCLUSIVE);
+            } else {
+                resetForm();
+            }
+        });
+    }
+
+    private void setSaving(boolean value, @Nullable String status) {
+        saving = value;
+        btnSave.setEnabled(!value);
+        btnSave.setText(value && status != null ? status
+                : (editing != null ? "Guardar cambios" : getString(R.string.btn_save_recipe)));
+    }
+
+    /** Deja el formulario vacío después de publicar una receta nueva. */
+    private void resetForm() {
+        etName.setText("");
+        etPortions.setText("");
+        etTime.setText("");
+        etTags.setText("");
+        selectedUtensils.clear();
+        showSelectedUtensils();
+        selectedImageUri = null;
+        existingImagePath = null;
+        ivRecipeImage.setImageResource(android.R.drawable.ic_menu_gallery);
+        containerIngredients.removeAllViews();
+        if (containerCondiments != null) containerCondiments.removeAllViews();
+        containerSteps.removeAllViews();
+        stepCount = 0;
+        addIngredientRow();
+        addCondimentRow();
+        addStepRow();
     }
 }

@@ -162,7 +162,8 @@ public class HomeFragment extends Fragment implements RecipeAdapter.OnRecipeClic
         List<Recipe> results = new ArrayList<>();
         for (Recipe r : lastLoaded) {
             if (quick && !(r.getTimeMinutes() > 0 && r.getTimeMinutes() <= 30)) continue;
-            if (healthy && r.getDietaryLabel().isEmpty()) continue;
+            // "Saludable" la pone el servidor según las calorías por porción
+            if (healthy && !r.hasTag("Saludable")) continue;
             if (anyLevel) {
                 String d = r.getDifficulty();
                 boolean match = (beginner && "principiante".equals(d))
@@ -201,6 +202,12 @@ public class HomeFragment extends Fragment implements RecipeAdapter.OnRecipeClic
     private List<Category> buildCategories(List<Recipe> recipes) {
         List<Category> categories = new ArrayList<>();
         if (recipes == null || recipes.isEmpty()) return categories;
+
+        // Recetas del usuario: desde el detalle puede editarlas o eliminarlas
+        int me = com.sergio.proyectov1.api.ApiHelper.userId(requireContext());
+        List<Recipe> mine = new ArrayList<>();
+        for (Recipe r : recipes) if (me > 0 && r.getOwnerId() == me) mine.add(r);
+        if (!mine.isEmpty()) categories.add(new Category("Mis recetas", mine));
 
         // El servidor ya las entrega de la más reciente a la más antigua
         categories.add(new Category("Recién publicadas", new ArrayList<>(recipes)));

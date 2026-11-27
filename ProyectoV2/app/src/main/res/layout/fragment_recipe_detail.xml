@@ -69,6 +69,23 @@
                     android:textColor="@color/gris" />
             </LinearLayout>
 
+            <TextView
+                android:id="@+id/tv_detail_author"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="14sp"
+                android:textColor="@color/gris"
+                android:layout_marginTop="-8dp"
+                android:layout_marginBottom="8dp"
+                android:visibility="gone" />
+
+            <com.google.android.material.chip.ChipGroup
+                android:id="@+id/chip_detail_tags"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp"
+                android:visibility="gone" />
+
             <!-- SECCIÓN: Valoración y Reporte -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
@@ -143,7 +160,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Información Nutricional (Total)"
+                        android:text="Información nutricional (por porción)"
                         android:textStyle="bold"
                         android:textColor="@color/green_normal"
                         android:layout_marginBottom="8dp"/>
@@ -189,6 +206,91 @@
                 android:layout_height="wrap_content"
                 android:textSize="16sp"
                 android:textColor="@color/black"
+                android:layout_marginBottom="16dp" />
+
+            <!-- SECCIÓN: Utensilios (solo si la receta tiene) -->
+            <TextView
+                android:id="@+id/tv_detail_utensils_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Utensilios especiales"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:textColor="@color/green_normal"
+                android:layout_marginBottom="8dp"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/tv_detail_utensils"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="16sp"
+                android:textColor="@color/black"
+                android:layout_marginBottom="16dp"
+                android:visibility="gone" />
+
+            <!-- SECCIÓN: Comentarios -->
+            <TextView
+                android:id="@+id/tv_detail_comments_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Comentarios"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:textColor="@color/green_normal"
+                android:layout_marginBottom="8dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="8dp">
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/til_comment"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:hint="Escribe un comentario"
+                    app:counterEnabled="true"
+                    app:counterMaxLength="500">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/et_comment"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="textCapSentences|textMultiLine"
+                        android:maxLength="500"
+                        android:maxLines="4" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <ImageButton
+                    android:id="@+id/btn_send_comment"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:layout_marginStart="4dp"
+                    android:src="@android:drawable/ic_menu_send"
+                    app:tint="@color/green_normal"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Publicar comentario" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/tv_detail_comments_empty"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Sé el primero en comentar"
+                android:textColor="@color/gris"
+                android:textSize="14sp"
+                android:layout_marginBottom="8dp" />
+
+            <LinearLayout
+                android:id="@+id/container_comments"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
                 android:layout_marginBottom="32dp" />
 
         </LinearLayout>

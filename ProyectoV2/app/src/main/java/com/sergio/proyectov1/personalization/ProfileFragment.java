@@ -143,6 +143,9 @@ public class ProfileFragment extends Fragment {
         view.findViewById(R.id.btn_save_profile).setOnClickListener(v -> saveAndCalculate());
         view.findViewById(R.id.btn_logout_profile).setOnClickListener(v -> logoutUser());
         view.findViewById(R.id.btn_delete_account).setOnClickListener(v -> confirmDeleteAccount());
+
+        // Utensilios especiales del usuario (se guardan en la BD)
+        new UtensilsSection(this, view);
     }
 
     private void bindViews(View v) {

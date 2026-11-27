@@ -15,7 +15,9 @@ En phpMyAdmin (o con la consola de MySQL), ejecutar en este orden:
 1. `recetas_api/sql/00_esquema.sql`: crea `db_recetas` con todas las tablas, la función `unidad_permitida` y los triggers.
 2. `recetas_api/sql/00_catalogos.sql`: ingredientes, especias, utensilios y medidas por alimento.
 
-Los scripts `01_` a `05_` son las migraciones que se aplicaron a una BD ya existente; no hace falta ejecutarlos si se usan los `00_`.
+Los scripts `01_` a `06_` son las migraciones que se aplicaron a una BD ya existente; no hace falta ejecutarlos si se usan los `00_`. Si ya tienes la BD de antes, ejecuta solo los que te falten, en orden.
+
+Las imágenes de las recetas se guardan en `recetas_api/uploads/` (no se suben a Git; esa carpeta no ejecuta código).
 
 Para sacar un respaldo completo usa `--routines`; si no, la función de unidades no se copia y los triggers fallan:
 
