@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:paddingVertical="4dp"
+    android:layout_marginBottom="4dp">
+
+    <EditText
+        android:id="@+id/et_condiment_quantity"
+        android:layout_width="65dp"
+        android:layout_height="wrap_content"
+        android:hint="Cant."
+        android:inputType="numberDecimal"
+        android:textSize="14sp"/>
+
+    <Spinner
+        android:id="@+id/spinner_condiment_unit"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:minWidth="100dp"/>
+
+    <TextView
+        android:id="@+id/tv_selected_condiment"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:padding="8dp"
+        android:text="Seleccionar condimento"
+        android:textColor="@color/green_normal"
+        android:textSize="14sp"
+        android:clickable="true"
+        android:focusable="true"/>
+
+    <ImageButton
+        android:id="@+id/btn_remove_condiment"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
+        android:src="@android:drawable/ic_menu_delete"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="Eliminar condimento"/>
+
+</LinearLayout>

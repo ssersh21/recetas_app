@@ -1,0 +1,15 @@
+<resources>
+    <string name="app_name">ProyectoV1</string>
+    <string name="appbar_scrolling_view_behavoir" />
+
+    <!-- Crear Receta -->
+    <string name="hint_recipe_name">Nombre de la Receta</string>
+    <string name="hint_main_ingredients">Ingredientes Principales (Obligatorios)</string>
+    <string name="hint_optional_ingredients">Ingredientes Complementarios (Opcionales)</string>
+    <string name="hint_portions">Porciones</string>
+    <string name="hint_time">Tiempo estimado (ej. 45 min)</string>
+    <string name="hint_utensils">Utensilios principales</string>
+    <string name="hint_steps">Pasos de elaboración</string>
+    <string name="btn_save_recipe">Guardar Receta</string>
+    <string name="btn_select_image">Seleccionar Imagen</string>
+</resources>

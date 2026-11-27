@@ -1,0 +1,2 @@
+# Los scripts de la base de datos no deben poder descargarse desde el navegador
+Require all denied

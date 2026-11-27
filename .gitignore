@@ -1,0 +1,27 @@
+# --- Respaldos de la BD (contienen correos y contraseñas) ---
+respaldos_bd/
+*.sql.bak
+**/respaldo_*.sql
+
+# --- Imágenes que suben los usuarios ---
+recetas_api/uploads/*
+!recetas_api/uploads/.gitkeep
+!recetas_api/uploads/.htaccess
+
+# --- Configuración local (IP del servidor, clave de USDA, SDK) ---
+local.properties
+
+# --- Android Studio / Gradle ---
+.idea/
+*.iml
+.gradle/
+build/
+captures/
+.externalNativeBuild/
+.cxx/
+.kotlin/
+
+# --- Sistema operativo ---
+.DS_Store
+Thumbs.db
+desktop.ini

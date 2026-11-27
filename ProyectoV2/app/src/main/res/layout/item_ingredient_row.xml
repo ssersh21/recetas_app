@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingVertical="6dp"
+    android:paddingHorizontal="4dp"
+    android:layout_marginBottom="8dp">
+
+    <!-- Fila Superior: Selección de Tipo e Ingrediente -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="4dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Tipo:"
+            android:textStyle="bold"
+            android:textSize="13sp"
+            android:textColor="@color/green_dark"
+            android:layout_marginEnd="6dp"/>
+
+        <Spinner
+            android:id="@+id/spinner_ingredient_type"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"/>
+
+        <ImageButton
+            android:id="@+id/btn_remove_ingredient"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:src="@android:drawable/ic_menu_delete"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Eliminar ingrediente"/>
+    </LinearLayout>
+
+    <!-- Fila Inferior: Cantidad, Unidad e Ingrediente -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <EditText
+            android:id="@+id/et_ingredient_quantity"
+            android:layout_width="65dp"
+            android:layout_height="wrap_content"
+            android:hint="Cant."
+            android:inputType="numberDecimal"
+            android:textSize="14sp"/>
+
+        <Spinner
+            android:id="@+id/spinner_unit"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:minWidth="100dp"/>
+
+        <TextView
+            android:id="@+id/tv_selected_ingredient"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:padding="8dp"
+            android:text="Seleccionar ingrediente"
+            android:textColor="@color/green_normal"
+            android:textSize="14sp"
+            android:clickable="true"
+            android:focusable="true"/>
+
+    </LinearLayout>
+
+</LinearLayout>

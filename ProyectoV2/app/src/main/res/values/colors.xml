@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+
+    <color name="green_dark">#062925</color>
+    <color name="green_normal">#044a42</color>
+    <color name="green_ligth">#3a9188</color>
+    <color name="green_light_2">#b8e1dd</color>
+    
+    
+    <color name="primario">#6C3BC5</color>
+    <color name="secundario_obscuro">#4E2699</color>
+    <color name="secundario">#9583B6</color>
+    <color name="exito">#6C3BC5</color>
+    <color name="verde">#4CAF50</color>
+    <color name="ama">#F59E0B</color>
+    <color name="rojo">#E05252</color>
+    <color name="gris_claro">#F8F7FA</color>
+    <color name="gris_obscuro">#25232A</color>
+    <color name="gris">#6B6870</color>
+</resources>
