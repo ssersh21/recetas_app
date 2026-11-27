@@ -48,29 +48,43 @@ try {
 
     $g = leerDatosGenerales($data);
 
+    // Si la imagen quedó en la zona gris de SafeSearch, la receta espera a un administrador
+    $moderacion = resultadoModeracion($pdo, $g['imagen'], $idUsuario);
+    $estado = $moderacion === 'revision' ? 'pendiente_revision' : 'publicada';
+
     $pdo->beginTransaction();
 
     $stmt = $pdo->prepare("
         INSERT INTO receta (id_usuario, nombre, porciones, tiempo_estimado, nivel_dificultad,
                             imagen, descripcion, estado, visibilidad,
                             calorias_porcion, proteinas_porcion, carbohidratos_porcion, grasas_porcion)
-        VALUES (?, ?, ?, ?, ?, ?, ?, 'publicada', 'publico', ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'publico', ?, ?, ?, ?)
     ");
     $stmt->execute([
         $idUsuario, $g['nombre'], $g['porciones'], $g['tiempo_estimado'], $g['nivel_dificultad'],
-        $g['imagen'], $g['descripcion'],
+        $g['imagen'], $g['descripcion'], $estado,
         $g['calorias_porcion'], $g['proteinas_porcion'], $g['carbohidratos_porcion'], $g['grasas_porcion']
     ]);
     $idReceta = (int)$pdo->lastInsertId();
 
     guardarDetalleReceta($pdo, $idReceta, $data, $g);
+    ligarModeracionReceta($pdo, $g['imagen'], $idReceta);
+
+    if ($estado === 'pendiente_revision') {
+        notificarAdministradores($pdo, 'revision_pendiente', 'Imagen por revisar',
+            "La receta \"{$g['nombre']}\" tiene una imagen en revisión.", $idReceta);
+    }
 
     $pdo->commit();
 
+    $mensaje = $estado === 'pendiente_revision'
+        ? "Tu receta está en revisión, te notificaremos pronto"
+        : "Receta guardada correctamente";
     responderJson(200, [
         "success" => true,
-        "mensaje" => "Receta guardada correctamente",
-        "message" => "Receta guardada correctamente",
+        "mensaje" => $mensaje,
+        "message" => $mensaje,
+        "estado" => $estado,
         "id_receta" => $idReceta
     ]);
 } catch (Exception $e) {

@@ -25,3 +25,6 @@ captures/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# --- Claves del servidor (Google Vision) ---
+recetas_api/config.local.php

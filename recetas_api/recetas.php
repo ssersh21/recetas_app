@@ -28,6 +28,9 @@ try {
     $limite = max(1, min(100, $limite));
     // autor=X: recetas de ese usuario ("Mis recetas"), en cualquier estado
     $autor = isset($_GET['autor']) ? (int)$_GET['autor'] : 0;
+    // yo=X: además de las públicas, incluye las de ese usuario que no están publicadas
+    // (en revisión, rechazadas, borrador) para que las vea en "Mis recetas"
+    $yo = isset($_GET['yo']) ? (int)$_GET['yo'] : 0;
 
     // Los reportes de los usuarios se guardan en reporte_receta (feedback_receta.php)
     $joinReporte = "LEFT JOIN reporte_receta rep ON rep.id_receta = r.id_receta";
@@ -65,7 +68,13 @@ try {
         $sql .= " AND r.id_usuario = :autor";
         $params[':autor'] = $autor;
     } elseif (!$isAdmin) {
-        $sql .= " AND (r.estado = 'publicada' OR r.estado IS NULL) AND (r.visibilidad = 'publico' OR r.visibilidad IS NULL)";
+        $publica = "((r.estado = 'publicada' OR r.estado IS NULL) AND (r.visibilidad = 'publico' OR r.visibilidad IS NULL))";
+        if ($yo > 0) {
+            $sql .= " AND ($publica OR r.id_usuario = :yo)";
+            $params[':yo'] = $yo;
+        } else {
+            $sql .= " AND $publica";
+        }
     }
 
     if ($idReceta > 0) {

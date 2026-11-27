@@ -31,7 +31,7 @@ try {
 }
 
 try {
-    $stmt = $pdo->prepare("SELECT id_usuario, imagen FROM receta WHERE id_receta = ?");
+    $stmt = $pdo->prepare("SELECT id_usuario, imagen, estado FROM receta WHERE id_receta = ?");
     $stmt->execute([$idReceta]);
     $actual = $stmt->fetch();
 
@@ -45,34 +45,52 @@ try {
 
     $g = leerDatosGenerales($data);
 
+    // El estado depende de la moderación de la imagen (también si el admin la había rechazado:
+    // al subir otra imagen la receta vuelve a pasar por SafeSearch)
+    $imagenActual = $actual['imagen'] ?: null;
+    $moderacion = resultadoModeracion($pdo, $g['imagen'], $idUsuario, $imagenActual);
+    $estado = $moderacion === 'revision' ? 'pendiente_revision' : 'publicada';
+    $avisarAdmins = $estado === 'pendiente_revision'
+        && ($g['imagen'] !== $imagenActual || $actual['estado'] !== 'pendiente_revision');
+
     $pdo->beginTransaction();
 
     $stmt = $pdo->prepare("
         UPDATE receta SET nombre = ?, porciones = ?, tiempo_estimado = ?, nivel_dificultad = ?,
-               imagen = ?, descripcion = ?,
+               imagen = ?, descripcion = ?, estado = ?,
                calorias_porcion = ?, proteinas_porcion = ?, carbohidratos_porcion = ?, grasas_porcion = ?
         WHERE id_receta = ? AND id_usuario = ?
     ");
     $stmt->execute([
         $g['nombre'], $g['porciones'], $g['tiempo_estimado'], $g['nivel_dificultad'],
-        $g['imagen'], $g['descripcion'],
+        $g['imagen'], $g['descripcion'], $estado,
         $g['calorias_porcion'], $g['proteinas_porcion'], $g['carbohidratos_porcion'], $g['grasas_porcion'],
         $idReceta, $idUsuario
     ]);
 
     borrarDetalleReceta($pdo, $idReceta);
     guardarDetalleReceta($pdo, $idReceta, $data, $g);
+    ligarModeracionReceta($pdo, $g['imagen'], $idReceta);
+
+    if ($avisarAdmins) {
+        notificarAdministradores($pdo, 'revision_pendiente', 'Imagen por revisar',
+            "La receta \"{$g['nombre']}\" tiene una imagen en revisión.", $idReceta);
+    }
 
     $pdo->commit();
 
-    if ($actual['imagen'] && $actual['imagen'] !== $g['imagen']) {
-        borrarImagen($actual['imagen']);
+    if ($imagenActual && $imagenActual !== $g['imagen']) {
+        borrarImagen($imagenActual);
     }
 
+    $mensaje = $estado === 'pendiente_revision'
+        ? "Tu receta está en revisión, te notificaremos pronto"
+        : "Receta actualizada";
     responderJson(200, [
         "success" => true,
-        "mensaje" => "Receta actualizada",
-        "message" => "Receta actualizada",
+        "mensaje" => $mensaje,
+        "message" => $mensaje,
+        "estado" => $estado,
         "id_receta" => $idReceta
     ]);
 } catch (Exception $e) {

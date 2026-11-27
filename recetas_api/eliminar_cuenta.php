@@ -14,6 +14,7 @@ ini_set('display_errors', 0);
 
 require_once __DIR__ . '/conexion.php';
 require_once __DIR__ . '/auth_helper.php';
+require_once __DIR__ . '/receta_helper.php';
 
 header("Content-Type: application/json; charset=UTF-8");
 
@@ -39,6 +40,15 @@ try {
         responderJson(401, ["success" => false, "message" => "La contraseña no es correcta"]);
     }
 
+    // Imágenes del usuario (de sus recetas y las que subió) para borrar los archivos al final
+    $stmt = $pdo->prepare("
+        SELECT imagen FROM receta WHERE id_usuario = :id AND imagen IS NOT NULL
+        UNION
+        SELECT ruta FROM moderacion_imagen WHERE id_usuario = :id2 AND ruta IS NOT NULL
+    ");
+    $stmt->execute([':id' => $idUsuario, ':id2' => $idUsuario]);
+    $imagenes = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
     $pdo->beginTransaction();
 
     // perfil_usuario la crea guardar_perfil.php y no tiene llave foránea, se borra a mano
@@ -51,6 +61,10 @@ try {
     $pdo->prepare("DELETE FROM usuario WHERE id_usuario = :id")->execute([':id' => $idUsuario]);
 
     $pdo->commit();
+
+    foreach ($imagenes as $ruta) {
+        borrarImagen($ruta);
+    }
 
     responderJson(200, ["success" => true, "message" => "Tu cuenta y tus datos fueron eliminados"]);
 } catch (PDOException $e) {

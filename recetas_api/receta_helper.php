@@ -6,6 +6,7 @@
  */
 
 require_once __DIR__ . '/unidades_helper.php';
+require_once __DIR__ . '/moderacion_helper.php';
 
 // Reglas de las etiquetas automáticas (valores por UNA porción)
 const SALUDABLE_KCAL_MAX = 500;

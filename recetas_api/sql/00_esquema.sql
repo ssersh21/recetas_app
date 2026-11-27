@@ -160,6 +160,54 @@ CREATE TABLE `ingrediente_unidad` (
   CONSTRAINT `fk_iu_unidad` FOREIGN KEY (`id_unidad`) REFERENCES `unidad_medida` (`id_unidad`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `moderacion_imagen`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `moderacion_imagen` (
+  `id_moderacion` int(11) NOT NULL AUTO_INCREMENT,
+  `id_usuario` int(11) NOT NULL,
+  `ruta` varchar(255) DEFAULT NULL,
+  `id_receta` int(11) DEFAULT NULL,
+  `adult` varchar(15) DEFAULT NULL,
+  `violence` varchar(15) DEFAULT NULL,
+  `racy` varchar(15) DEFAULT NULL,
+  `medical` varchar(15) DEFAULT NULL,
+  `spoof` varchar(15) DEFAULT NULL,
+  `resultado` enum('aprobada','revision','rechazada') NOT NULL,
+  `motivo` varchar(255) DEFAULT NULL,
+  `revisado_por` int(11) DEFAULT NULL,
+  `fecha` datetime NOT NULL DEFAULT current_timestamp(),
+  `fecha_revision` datetime DEFAULT NULL,
+  PRIMARY KEY (`id_moderacion`),
+  UNIQUE KEY `uq_moderacion_ruta` (`ruta`),
+  KEY `idx_moderacion_resultado` (`resultado`),
+  KEY `idx_moderacion_receta` (`id_receta`),
+  KEY `fk_moderacion_usuario` (`id_usuario`),
+  KEY `fk_moderacion_admin` (`revisado_por`),
+  CONSTRAINT `fk_moderacion_admin` FOREIGN KEY (`revisado_por`) REFERENCES `usuario` (`id_usuario`) ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT `fk_moderacion_receta` FOREIGN KEY (`id_receta`) REFERENCES `receta` (`id_receta`) ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT `fk_moderacion_usuario` FOREIGN KEY (`id_usuario`) REFERENCES `usuario` (`id_usuario`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `notificacion`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `notificacion` (
+  `id_notificacion` int(11) NOT NULL AUTO_INCREMENT,
+  `id_usuario` int(11) NOT NULL,
+  `tipo` varchar(30) NOT NULL,
+  `titulo` varchar(120) NOT NULL,
+  `mensaje` varchar(500) NOT NULL,
+  `id_receta` int(11) DEFAULT NULL,
+  `leida` tinyint(1) NOT NULL DEFAULT 0,
+  `fecha` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id_notificacion`),
+  KEY `idx_notificacion_usuario` (`id_usuario`,`leida`),
+  KEY `fk_notificacion_receta` (`id_receta`),
+  CONSTRAINT `fk_notificacion_receta` FOREIGN KEY (`id_receta`) REFERENCES `receta` (`id_receta`) ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT `fk_notificacion_usuario` FOREIGN KEY (`id_usuario`) REFERENCES `usuario` (`id_usuario`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `paso`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;

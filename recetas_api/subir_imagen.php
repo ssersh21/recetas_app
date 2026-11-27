@@ -5,7 +5,8 @@
  * Respuesta: {"success": true, "imagen": "uploads/receta_<32 hex>.jpg"}
  *
  * La ruta devuelta se manda después en "imagen" a guardar_receta.php / editar_receta.php.
- * (Aquí es donde se conectará la moderación con Google Cloud Vision SafeSearch.)
+ * Antes de guardarse pasa por Google Cloud Vision SafeSearch (moderacion_helper.php):
+ * aprobada -> se guarda; revision -> se guarda y la revisa un admin; rechazada -> no se guarda (422).
  */
 ob_start();
 error_reporting(0);
@@ -13,6 +14,7 @@ ini_set('display_errors', 0);
 
 require_once __DIR__ . '/conexion.php';
 require_once __DIR__ . '/auth_helper.php';
+require_once __DIR__ . '/moderacion_helper.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -58,6 +60,29 @@ try {
     responderJson(500, ["success" => false, "message" => "Error de conexión con la base de datos"]);
 }
 
+// ---------------------------------------------------------------------------
+// Moderación ANTES de guardar (Google Cloud Vision SafeSearch, tres carriles)
+// ---------------------------------------------------------------------------
+$analisis = analizarSafeSearch((string)file_get_contents($archivo['tmp_name']));
+$decision = clasificarImagen($analisis['puntajes'], $analisis['error']);
+$p = $analisis['puntajes'] ?? [];
+
+$registrar = $pdo->prepare("
+    INSERT INTO moderacion_imagen (id_usuario, ruta, adult, violence, racy, medical, spoof, resultado, motivo)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+");
+
+if ($decision['resultado'] === 'rechazada') {
+    // Carril 3: la imagen no se guarda; solo queda el registro con los puntajes
+    $registrar->execute([$idUsuario, null, $p['adult'] ?? null, $p['violence'] ?? null, $p['racy'] ?? null,
+        $p['medical'] ?? null, $p['spoof'] ?? null, 'rechazada', $decision['motivo']]);
+    responderJson(422, [
+        "success" => false,
+        "moderacion" => "rechazada",
+        "message" => "La imagen no cumple con las políticas de la comunidad. Sube una imagen diferente."
+    ]);
+}
+
 $carpeta = __DIR__ . '/uploads';
 if (!is_dir($carpeta) && !mkdir($carpeta, 0755, true)) {
     responderJson(500, ["success" => false, "message" => "No se pudo guardar la imagen"]);
@@ -68,4 +93,19 @@ if (!move_uploaded_file($archivo['tmp_name'], "$carpeta/$nombre")) {
     responderJson(500, ["success" => false, "message" => "No se pudo guardar la imagen"]);
 }
 
-responderJson(200, ["success" => true, "message" => "Imagen subida", "imagen" => "uploads/$nombre"]);
+try {
+    $registrar->execute([$idUsuario, "uploads/$nombre", $p['adult'] ?? null, $p['violence'] ?? null,
+        $p['racy'] ?? null, $p['medical'] ?? null, $p['spoof'] ?? null, $decision['resultado'], $decision['motivo']]);
+} catch (PDOException $e) {
+    @unlink("$carpeta/$nombre");
+    responderJson(500, ["success" => false, "message" => "No se pudo guardar la imagen"]);
+}
+
+responderJson(200, [
+    "success" => true,
+    "imagen" => "uploads/$nombre",
+    "moderacion" => $decision['resultado'],
+    "message" => $decision['resultado'] === 'aprobada'
+        ? "Imagen aprobada"
+        : "La imagen será revisada por un administrador antes de publicarse"
+]);
