@@ -131,6 +131,7 @@ DROP TABLE IF EXISTS `etiqueta`;
 CREATE TABLE `etiqueta` (
   `id_etiqueta` int(11) NOT NULL AUTO_INCREMENT,
   `nombre` varchar(80) NOT NULL,
+  `automatica` tinyint(1) NOT NULL DEFAULT 0,
   PRIMARY KEY (`id_etiqueta`),
   UNIQUE KEY `nombre` (`nombre`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -191,6 +192,24 @@ CREATE TABLE `perfil` (
   CONSTRAINT `perfil_ibfk_1` FOREIGN KEY (`id_usuario`) REFERENCES `usuario` (`id_usuario`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `plan_comida`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `plan_comida` (
+  `id_plan` int(11) NOT NULL AUTO_INCREMENT,
+  `id_usuario` int(11) NOT NULL,
+  `fecha` date NOT NULL,
+  `tiempo` varchar(30) NOT NULL,
+  `hora` time DEFAULT NULL,
+  `id_receta` int(11) NOT NULL,
+  `cocinada` tinyint(1) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id_plan`),
+  UNIQUE KEY `uq_plan_tiempo` (`id_usuario`,`fecha`,`tiempo`),
+  KEY `idx_plan_receta` (`id_receta`),
+  CONSTRAINT `fk_plan_receta` FOREIGN KEY (`id_receta`) REFERENCES `receta` (`id_receta`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_plan_usuario` FOREIGN KEY (`id_usuario`) REFERENCES `usuario` (`id_usuario`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `receta`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
@@ -207,6 +226,10 @@ CREATE TABLE `receta` (
   `fecha_publicacion` datetime NOT NULL DEFAULT current_timestamp(),
   `estado` enum('borrador','pendiente_revision','publicada','rechazada') NOT NULL DEFAULT 'publicada',
   `visibilidad` enum('publico','privado') NOT NULL DEFAULT 'publico',
+  `calorias_porcion` decimal(8,2) DEFAULT NULL,
+  `proteinas_porcion` decimal(8,2) DEFAULT NULL,
+  `carbohidratos_porcion` decimal(8,2) DEFAULT NULL,
+  `grasas_porcion` decimal(8,2) DEFAULT NULL,
   PRIMARY KEY (`id_receta`),
   KEY `id_usuario` (`id_usuario`),
   KEY `id_receta_origen` (`id_receta_origen`),

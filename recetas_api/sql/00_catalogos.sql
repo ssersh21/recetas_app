@@ -31,6 +31,7 @@ UNLOCK TABLES;
 
 LOCK TABLES `etiqueta` WRITE;
 /*!40000 ALTER TABLE `etiqueta` DISABLE KEYS */;
+INSERT INTO `etiqueta` (`id_etiqueta`, `nombre`, `automatica`) VALUES (8,'Saludable',1),(9,'Alta en proteína',1),(10,'Rápida',1);
 /*!40000 ALTER TABLE `etiqueta` ENABLE KEYS */;
 UNLOCK TABLES;
 

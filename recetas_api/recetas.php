@@ -26,6 +26,8 @@ try {
     $minReportes = isset($_GET['min_reportes']) ? (int)$_GET['min_reportes'] : 0;
     $limite = (int)($_GET['limite'] ?? 50);
     $limite = max(1, min(100, $limite));
+    // autor=X: recetas de ese usuario ("Mis recetas"), en cualquier estado
+    $autor = isset($_GET['autor']) ? (int)$_GET['autor'] : 0;
 
     // Los reportes de los usuarios se guardan en reporte_receta (feedback_receta.php)
     $joinReporte = "LEFT JOIN reporte_receta rep ON rep.id_receta = r.id_receta";
@@ -40,10 +42,18 @@ try {
             r.nivel_dificultad,
             r.imagen,
             r.descripcion,
+            r.id_usuario,
+            u.nombre AS autor,
+            r.estado,
+            r.calorias_porcion,
+            r.proteinas_porcion,
+            r.carbohidratos_porcion,
+            r.grasas_porcion,
             COALESCE(AVG(c.calificacion), 0) AS calificacion_promedio,
             COUNT(DISTINCT c.id_calificacion) AS total_calificaciones,
             $colReportes
         FROM receta r
+        LEFT JOIN usuario u ON u.id_usuario = r.id_usuario
         LEFT JOIN calificacion c ON c.id_receta = r.id_receta
         $joinReporte
         WHERE 1=1
@@ -51,7 +61,10 @@ try {
 
     $params = [];
 
-    if (!$isAdmin) {
+    if ($autor > 0) {
+        $sql .= " AND r.id_usuario = :autor";
+        $params[':autor'] = $autor;
+    } elseif (!$isAdmin) {
         $sql .= " AND (r.estado = 'publicada' OR r.estado IS NULL) AND (r.visibilidad = 'publico' OR r.visibilidad IS NULL)";
     }
 
@@ -61,8 +74,15 @@ try {
     }
 
     if ($buscar !== '') {
-        $sql .= " AND r.nombre LIKE :buscar";
+        // Texto libre: nombre de la receta, un ingrediente o una etiqueta
+        $sql .= " AND (r.nombre LIKE :buscar
+                   OR EXISTS (SELECT 1 FROM receta_ingrediente bi JOIN ingrediente bn ON bn.id_ingrediente = bi.id_ingrediente
+                              WHERE bi.id_receta = r.id_receta AND bn.nombre LIKE :buscar2)
+                   OR EXISTS (SELECT 1 FROM receta_etiqueta be JOIN etiqueta bt ON bt.id_etiqueta = be.id_etiqueta
+                              WHERE be.id_receta = r.id_receta AND bt.nombre LIKE :buscar3))";
         $params[':buscar'] = '%' . $buscar . '%';
+        $params[':buscar2'] = '%' . $buscar . '%';
+        $params[':buscar3'] = '%' . $buscar . '%';
     }
 
     $sql .= " GROUP BY r.id_receta";
@@ -148,6 +168,42 @@ try {
         }
     } catch (Exception $e) {}
 
+    // Utensilios
+    $utensilios = [];
+    $stmt = $pdo->prepare("
+        SELECT ru.id_receta, u.id_utensilio, u.nombre
+        FROM receta_utensilio ru
+        JOIN utensilio u ON u.id_utensilio = ru.id_utensilio
+        WHERE ru.id_receta IN ($marcas)
+        ORDER BY u.nombre
+    ");
+    $stmt->execute($ids);
+    foreach ($stmt->fetchAll() as $f) {
+        $utensilios[(int)$f['id_receta']][] = [
+            "id_utensilio" => (int)$f['id_utensilio'],
+            "nombre" => $f['nombre']
+        ];
+    }
+
+    // Etiquetas
+    $etiquetas = [];
+    $stmt = $pdo->prepare("
+        SELECT re.id_receta, e.nombre, e.automatica
+        FROM receta_etiqueta re
+        JOIN etiqueta e ON e.id_etiqueta = re.id_etiqueta
+        WHERE re.id_receta IN ($marcas)
+        ORDER BY e.automatica DESC, e.nombre
+    ");
+    $stmt->execute($ids);
+    foreach ($stmt->fetchAll() as $f) {
+        $etiquetas[(int)$f['id_receta']][] = [
+            "nombre" => $f['nombre'],
+            "automatica" => (bool)$f['automatica']
+        ];
+    }
+
+    $numeroONull = static fn($v) => $v === null ? null : (float)$v;
+
     // Respuesta
     $respuesta = [];
 
@@ -162,6 +218,15 @@ try {
             "nivel_dificultad" => $r['nivel_dificultad'] ?? "Intermedio",
             "imagen" => $r['imagen'] ?? "",
             "descripcion" => $r['descripcion'] ?? "",
+            "id_usuario" => (int)$r['id_usuario'],
+            "autor" => $r['autor'] ?? "",
+            "estado" => $r['estado'] ?? "publicada",
+            "calorias_porcion" => $numeroONull($r['calorias_porcion']),
+            "proteinas_porcion" => $numeroONull($r['proteinas_porcion']),
+            "carbohidratos_porcion" => $numeroONull($r['carbohidratos_porcion']),
+            "grasas_porcion" => $numeroONull($r['grasas_porcion']),
+            "utensilios" => $utensilios[$id] ?? [],
+            "etiquetas" => $etiquetas[$id] ?? [],
             "calificacion_promedio" => round((float)$r['calificacion_promedio'], 1),
             "total_calificaciones" => (int)$r['total_calificaciones'],
             "total_reportes" => isset($r['total_reportes']) ? (int)$r['total_reportes'] : 0,
