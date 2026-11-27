@@ -15,7 +15,7 @@ En phpMyAdmin (o con la consola de MySQL), ejecutar en este orden:
 1. `recetas_api/sql/00_esquema.sql`: crea `db_recetas` con todas las tablas, la función `unidad_permitida` y los triggers.
 2. `recetas_api/sql/00_catalogos.sql`: ingredientes, especias, utensilios y medidas por alimento.
 
-Los scripts `01_` a `06_` son las migraciones que se aplicaron a una BD ya existente; no hace falta ejecutarlos si se usan los `00_`. Si ya tienes la BD de antes, ejecuta solo los que te falten, en orden.
+Los scripts `01_` a `07_` son las migraciones que se aplicaron a una BD ya existente; no hace falta ejecutarlos si se usan los `00_`. Si ya tienes la BD de antes, ejecuta solo los que te falten, en orden.
 
 Las imágenes de las recetas se guardan en `recetas_api/uploads/` (no se suben a Git; esa carpeta no ejecuta código).
 
@@ -47,6 +47,24 @@ USDA_API_KEY=tu_clave_de_api.data.gov
 - Desde el emulador usa `http://10.0.2.2/recetas_api/` (es el valor por defecto).
 - Desde un celular físico usa la IP de tu computadora en la red (`ipconfig`).
 - La clave de USDA se obtiene gratis en https://api.data.gov/signup/. Si no la pones, se usa `DEMO_KEY`, que tiene un límite de consultas muy bajo.
+
+## Moderación de imágenes (Google Cloud Vision SafeSearch)
+
+Cada imagen que se sube pasa por SafeSearch **antes** de guardarse:
+
+| Resultado | Regla | Qué pasa |
+|---|---|---|
+| Aprobada | todas las categorías en `VERY_UNLIKELY` o `UNLIKELY` | se guarda y la receta se publica |
+| Revisión | cualquier otro caso (p. ej. alguna categoría en `POSSIBLE`, `racy` en `LIKELY`) | se guarda; la receta queda "En revisión" y un administrador decide en la pestaña **Imágenes** |
+| Rechazada | `adult` o `violence` en `LIKELY` o `VERY_LIKELY` | no se guarda; se le pide al usuario otra imagen |
+
+Para activarla:
+
+1. En https://console.cloud.google.com crea un proyecto y habilita **Cloud Vision API**. Google pide una cuenta de facturación, aunque el uso bajo de SafeSearch entra en su capa gratuita mensual.
+2. En *APIs y servicios → Credenciales* crea una **clave de API** y restríngela a *Cloud Vision API*.
+3. Copia `recetas_api/config.example.php` como `recetas_api/config.local.php` y pega la clave en `VISION_API_KEY`. Ese archivo no se sube a Git.
+
+Sin clave, todas las imágenes van a revisión del administrador; nunca se aprueban solas.
 
 ## Medidas por alimento
 

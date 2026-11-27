@@ -15,6 +15,13 @@ public interface RecipeService {
             @Query("buscar") String buscar
     );
 
+    /** Públicas + las del usuario "yo" que no están publicadas (en revisión, rechazadas). */
+    @GET("recetas.php")
+    Call<List<RecipeDto>> getRecipesIncludingMine(
+            @Query("buscar") String buscar,
+            @Query("yo") int yo
+    );
+
     @GET("recetas.php")
     Call<List<RecipeDto>> getAdminRecipes(
             @Query("admin") int admin,

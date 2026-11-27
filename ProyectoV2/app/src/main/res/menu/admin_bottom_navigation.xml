@@ -7,6 +7,11 @@
         android:title="Reportadas (≥5)"/>
 
     <item
+        android:id="@+id/nav_admin_moderation"
+        android:icon="@android:drawable/ic_menu_gallery"
+        android:title="Imágenes"/>
+
+    <item
         android:id="@+id/nav_admin_all_recipes"
         android:icon="@android:drawable/ic_menu_agenda"
         android:title="Gestión Recetas"/>

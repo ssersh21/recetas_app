@@ -111,7 +111,7 @@ public class HomeFragment extends Fragment implements RecipeAdapter.OnRecipeClic
             ((Chip) chipFilters.getChildAt(i)).setOnCheckedChangeListener((b, checked) -> render());
         }
 
-        recipeViewModel.cargarRecetas("");
+        recipeViewModel.cargarRecetas("", com.sergio.proyectov1.api.ApiHelper.userId(requireContext()));
     }
 
     @Override
@@ -122,14 +122,14 @@ public class HomeFragment extends Fragment implements RecipeAdapter.OnRecipeClic
 
     private void search(String query) {
         currentQuery = query;
-        recipeViewModel.cargarRecetas(query);
+        recipeViewModel.cargarRecetas(query, com.sergio.proyectov1.api.ApiHelper.userId(requireContext()));
     }
 
     @Override
     public void onResume() {
         super.onResume();
         if (recipeViewModel != null) {
-            recipeViewModel.cargarRecetas(currentQuery);
+            recipeViewModel.cargarRecetas(currentQuery, com.sergio.proyectov1.api.ApiHelper.userId(requireContext()));
         }
     }
 
@@ -203,11 +203,18 @@ public class HomeFragment extends Fragment implements RecipeAdapter.OnRecipeClic
         List<Category> categories = new ArrayList<>();
         if (recipes == null || recipes.isEmpty()) return categories;
 
-        // Recetas del usuario: desde el detalle puede editarlas o eliminarlas
+        // Recetas del usuario (incluye las que están en revisión o no se publicaron);
+        // desde el detalle puede editarlas o eliminarlas
         int me = com.sergio.proyectov1.api.ApiHelper.userId(requireContext());
         List<Recipe> mine = new ArrayList<>();
         for (Recipe r : recipes) if (me > 0 && r.getOwnerId() == me) mine.add(r);
         if (!mine.isEmpty()) categories.add(new Category("Mis recetas", mine));
+
+        // Las demás secciones solo muestran recetas publicadas
+        List<Recipe> published = new ArrayList<>();
+        for (Recipe r : recipes) if (r.isPublished()) published.add(r);
+        recipes = published;
+        if (recipes.isEmpty()) return categories;
 
         // El servidor ya las entrega de la más reciente a la más antigua
         categories.add(new Category("Recién publicadas", new ArrayList<>(recipes)));

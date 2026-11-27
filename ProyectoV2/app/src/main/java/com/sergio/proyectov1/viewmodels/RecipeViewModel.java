@@ -34,10 +34,18 @@ public class RecipeViewModel extends ViewModel {
         error.setValue(null);
     }
 
-    /** @param texto texto a buscar en el nombre; "" trae todas. */
+    /** @param texto texto a buscar en el nombre; "" trae todas (solo publicadas). */
     public void cargarRecetas(String texto) {
+        cargarRecetas(texto, 0);
+    }
 
-        repository.buscarRecetas(texto, new Callback<List<RecipeDto>>() {
+    /**
+     * @param yo id del usuario: además de las publicadas trae sus recetas en revisión
+     *           o rechazadas (para "Mis recetas"). 0 = solo publicadas.
+     */
+    public void cargarRecetas(String texto, int yo) {
+
+        repository.buscarRecetas(texto, yo, new Callback<List<RecipeDto>>() {
 
             @Override
             public void onResponse(Call<List<RecipeDto>> call,

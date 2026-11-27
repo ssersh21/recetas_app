@@ -41,7 +41,9 @@ public class RecipeAdapter extends RecyclerView.Adapter<RecipeAdapter.RecipeView
     public void onBindViewHolder(@NonNull RecipeViewHolder holder, int position) {
         Recipe recipe = recipes.get(position);
         holder.tvTitle.setText(recipe.getTitle());
-        holder.tvTime.setText(recipe.getTime());
+        // Si es una receta propia que no está publicada se indica su estado
+        holder.tvTime.setText(recipe.isPublished() ? recipe.getTime()
+                : recipe.getStatusLabel() + " · " + recipe.getTime());
         // Imagen subida por el autor (o el ícono por defecto)
         com.sergio.proyectov1.api.ApiHelper.loadImage(holder.ivThumb, recipe.getImageUrl(), recipe.getImageRes());
 

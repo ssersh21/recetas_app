@@ -26,6 +26,8 @@ public class Recipe implements Serializable {
     private java.util.List<String> utensils = new java.util.ArrayList<>();
     /** Datos completos tal como llegaron del servidor (para editar la receta). */
     private RecipeDto source;
+    /** publicada | pendiente_revision | rechazada | borrador */
+    private String status = "publicada";
 
     // Macronutrientes TOTALES de la receta (RecipeDetailFragment los divide entre las porciones)
     private double calories;
@@ -57,6 +59,20 @@ public class Recipe implements Serializable {
 
     public java.util.List<String> getUtensils() { return utensils; }
     public void setUtensils(java.util.List<String> utensils) { this.utensils = utensils; }
+
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status == null ? "publicada" : status; }
+    public boolean isPublished() { return "publicada".equals(status); }
+
+    /** Texto para el autor cuando su receta no está publicada ("" si está publicada). */
+    public String getStatusLabel() {
+        switch (status) {
+            case "pendiente_revision": return "En revisión";
+            case "rechazada": return "No publicada";
+            case "borrador": return "Falta imagen";
+            default: return "";
+        }
+    }
 
     public RecipeDto getSource() { return source; }
     public void setSource(RecipeDto source) { this.source = source; }

@@ -18,4 +18,10 @@ public class RecipeRepository {
     public void buscarRecetas(String texto, Callback<List<RecipeDto>> callback) {
         service.getRecipes(texto).enqueue(callback);
     }
+
+    /** Incluye las recetas propias que no están publicadas (yo = id del usuario). */
+    public void buscarRecetas(String texto, int yo, Callback<List<RecipeDto>> callback) {
+        if (yo > 0) service.getRecipesIncludingMine(texto, yo).enqueue(callback);
+        else service.getRecipes(texto).enqueue(callback);
+    }
 }

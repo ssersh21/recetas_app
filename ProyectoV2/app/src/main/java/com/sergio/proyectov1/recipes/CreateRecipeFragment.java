@@ -1129,7 +1129,19 @@ public class CreateRecipeFragment extends Fragment {
             if (!isAdded()) return;
             if (!ok) {
                 setSaving(false, null);
-                showToast(message);
+                if ("rechazada".equals(path)) {
+                    // Carril 3 de la moderación: la imagen no se guardó; hay que elegir otra
+                    selectedImageUri = null;
+                    ApiHelper.loadImage(ivRecipeImage, existingImagePath, android.R.drawable.ic_menu_gallery);
+                    new com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+                            .setTitle("Imagen no permitida")
+                            .setMessage(message)
+                            .setPositiveButton("Elegir otra", (d, w) -> btnSelectImage.performClick())
+                            .setNegativeButton("Cerrar", null)
+                            .show();
+                } else {
+                    showToast(message);
+                }
                 return;
             }
             // Si se vuelve a intentar no se sube otra vez la misma imagen

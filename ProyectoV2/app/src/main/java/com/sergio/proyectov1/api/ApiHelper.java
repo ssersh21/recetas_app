@@ -120,7 +120,8 @@ public final class ApiHelper {
 
     /**
      * Sube una imagen elegida con el Photo Picker a subir_imagen.php.
-     * En el callback, body es la ruta devuelta (ej. "uploads/receta_xxx.jpg").
+     * En el callback, body es la ruta devuelta (ej. "uploads/receta_xxx.jpg");
+     * si falla, body es "rechazada" cuando SafeSearch no la aceptó.
      */
     public static void uploadImage(Context context, Uri uri, Callback callback) {
         Context app = context.getApplicationContext();
@@ -152,7 +153,8 @@ public final class ApiHelper {
                     JSONObject json = new JSONObject(text);
                     boolean ok = response.isSuccessful() && json.optBoolean("success", false);
                     post(callback, ok, json.optString("message", ok ? "" : "No se pudo subir la imagen"),
-                            ok ? json.optString("imagen", "") : null);
+                            // Si falla, body indica si la moderación la rechazó ("rechazada")
+                            ok ? json.optString("imagen", "") : json.optString("moderacion", ""));
                 }
             } catch (Exception e) {
                 post(callback, false, "No se pudo subir la imagen: revisa tu conexión", null);

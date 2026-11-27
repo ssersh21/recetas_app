@@ -62,6 +62,7 @@ public final class RecipeMapper {
         recipe.setOwnerId(dto.id_usuario);
         recipe.setAuthor(dto.autor);
         recipe.setSource(dto);
+        recipe.setStatus(dto.estado);
 
         // El servidor guarda los valores por porción; Recipe guarda los totales
         if (dto.calorias_porcion != null && dto.calorias_porcion > 0) {

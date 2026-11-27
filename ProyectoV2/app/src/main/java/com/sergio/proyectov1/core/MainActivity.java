@@ -59,6 +59,13 @@ public class MainActivity extends AppCompatActivity {
         navigation.setSelectedItemId(R.id.nav_perfil);
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Avisos sin leer, p. ej. "Tu receta fue revisada y ya está publicada"
+        NotificationsChecker.check(this);
+    }
+
     private final NavigationBarView.OnItemSelectedListener mOnNavigationItemSelectedListener = new NavigationBarView.OnItemSelectedListener() {
         @Override
         public boolean onNavigationItemSelected(@NonNull MenuItem item) {
