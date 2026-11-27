@@ -18,7 +18,7 @@ require_once __DIR__ . '/conexion.php';
 try {
     $pdo = obtenerConexion();
 } catch (PDOException $e) {
-    ob_end_clean();
+    // (sin ob_start no hay búfer que limpiar)
     http_response_code(500);
     echo json_encode([
         "success" => false,
@@ -72,7 +72,7 @@ $aversiones = is_array($aversiones_raw) ? json_encode($aversiones_raw, JSON_UNES
 
 try {
     // 4. ASEGURAR QUE LA TABLA EXISTE
-    $db->exec("CREATE TABLE IF NOT EXISTS perfil_usuario (
+    $pdo->exec("CREATE TABLE IF NOT EXISTS perfil_usuario (
         id_perfil INT AUTO_INCREMENT PRIMARY KEY,
         id_usuario INT NOT NULL UNIQUE,
         nombre VARCHAR(120) NULL,
@@ -118,7 +118,7 @@ try {
             alergias = VALUES(alergias),
             aversiones = VALUES(aversiones)";
 
-    $stmt = $db->prepare($sql);
+    $stmt = $pdo->prepare($sql);
     $stmt->execute([
         $id_usuario, $nombre, $edad, $peso, $altura, $sexo, $nivel_actividad, $indice_actividad,
         $objetivo, $indice_meta, $nivel_cocina, $tiempo_disponible, $tiempos_comida, $tmb, $tdee,

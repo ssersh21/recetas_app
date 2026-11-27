@@ -1,27 +1,12 @@
 <?php
-header("Access-Control-Allow-Origin: *");
-header("Access-Control-Allow-Methods: GET, OPTIONS");
-header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
+/**
+ * Perfil del usuario (tabla perfil_usuario, la crea guardar_perfil.php).
+ * GET ?id_usuario=1
+ * -> {"success": true, "perfil": {...}} o {"success": false, "message": "..."}
+ */
 header("Content-Type: application/json; charset=UTF-8");
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
-    exit();
-}
-
-if (file_exists(__DIR__ . "/conexion.php")) {
-    require_once __DIR__ . "/conexion.php";
-} elseif (file_exists(__DIR__ . "/db.php")) {
-    require_once __DIR__ . "/db.php";
-} else {
-    try {
-        $conexion = new PDO("mysql:host=localhost;dbname=recetas_bd;charset=utf8mb4", "root", "");
-        $conexion->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-    } catch (PDOException $e) {
-        echo json_encode(["success" => false, "message" => "Error de conexión: " . $e->getMessage()]);
-        exit();
-    }
-}
+require_once __DIR__ . '/conexion.php';
 
 $id_usuario = intval($_GET['id_usuario'] ?? 0);
 
@@ -31,43 +16,29 @@ if ($id_usuario <= 0) {
 }
 
 try {
-    if (isset($conexion) && $conexion instanceof PDO) {
-        $stmt = $conexion->prepare("SELECT * FROM perfil_usuario WHERE id_usuario = ? LIMIT 1");
-        $stmt->execute([$id_usuario]);
-        $perfil = $stmt->fetch(PDO::FETCH_ASSOC);
+    // Antes usaba $conexion / $conn, que conexion.php no define: siempre respondía "Conexión no disponible"
+    $pdo = obtenerConexion();
 
-        if ($perfil) {
-            if (isset($perfil['alergias']) && is_string($perfil['alergias'])) {
-                $perfil['alergias'] = json_decode($perfil['alergias'], true) ?: [];
-            }
-            if (isset($perfil['aversiones']) && is_string($perfil['aversiones'])) {
-                $perfil['aversiones'] = json_decode($perfil['aversiones'], true) ?: [];
-            }
-            echo json_encode(["success" => true, "perfil" => $perfil]);
-        } else {
-            echo json_encode(["success" => false, "message" => "No se encontró perfil para este usuario"]);
-        }
-    } elseif (isset($conn) && $conn instanceof mysqli) {
-        $stmt = $conn->prepare("SELECT * FROM perfil_usuario WHERE id_usuario = ? LIMIT 1");
-        $stmt->bind_param("i", $id_usuario);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        $perfil = $result->fetch_assoc();
+    $stmt = $pdo->prepare("SELECT * FROM perfil_usuario WHERE id_usuario = ? LIMIT 1");
+    $stmt->execute([$id_usuario]);
+    $perfil = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        if ($perfil) {
-            if (isset($perfil['alergias']) && is_string($perfil['alergias'])) {
-                $perfil['alergias'] = json_decode($perfil['alergias'], true) ?: [];
+    if ($perfil) {
+        foreach (['alergias', 'aversiones'] as $campo) {
+            if (isset($perfil[$campo]) && is_string($perfil[$campo])) {
+                $perfil[$campo] = json_decode($perfil[$campo], true) ?: [];
             }
-            if (isset($perfil['aversiones']) && is_string($perfil['aversiones'])) {
-                $perfil['aversiones'] = json_decode($perfil['aversiones'], true) ?: [];
-            }
-            echo json_encode(["success" => true, "perfil" => $perfil]);
-        } else {
-            echo json_encode(["success" => false, "message" => "No se encontró perfil para este usuario"]);
         }
+        echo json_encode(["success" => true, "perfil" => $perfil], JSON_UNESCAPED_UNICODE);
     } else {
-        echo json_encode(["success" => false, "message" => "Conexión no disponible"]);
+        echo json_encode(["success" => false, "message" => "No se encontró perfil para este usuario"], JSON_UNESCAPED_UNICODE);
     }
-} catch (Exception $e) {
-    echo json_encode(["success" => false, "message" => "Error: " . $e->getMessage()]);
+} catch (PDOException $e) {
+    // La tabla perfil_usuario se crea al guardar el primer perfil
+    if ($e->getCode() === '42S02') {
+        echo json_encode(["success" => false, "message" => "No se encontró perfil para este usuario"], JSON_UNESCAPED_UNICODE);
+        exit();
+    }
+    http_response_code(500);
+    echo json_encode(["success" => false, "message" => "Error de conexión con la base de datos"], JSON_UNESCAPED_UNICODE);
 }

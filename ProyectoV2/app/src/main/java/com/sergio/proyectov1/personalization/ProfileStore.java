@@ -145,17 +145,20 @@ public class ProfileStore {
                         }
                     },
                     error -> {
-                        String errMsg = "Error al conectar con " + url;
+                        String errMsg;
                         if (error.networkResponse != null) {
-                            errMsg += " (HTTP " + error.networkResponse.statusCode + ")";
+                            // Sí hubo conexión: el servidor respondió con un error (no es problema de IP)
+                            errMsg = "El servidor no pudo guardar el perfil (HTTP " + error.networkResponse.statusCode + ")";
                             if (error.networkResponse.data != null) {
                                 try {
                                     String responseBody = new String(error.networkResponse.data, java.nio.charset.StandardCharsets.UTF_8);
-                                    errMsg += ": " + responseBody;
+                                    String serverMsg = new JSONObject(responseBody).optString("message", "");
+                                    if (!serverMsg.isEmpty()) errMsg += ": " + serverMsg;
                                 } catch (Exception ignored) {}
                             }
-                        } else if (error.getMessage() != null) {
-                            errMsg += ": " + error.getMessage();
+                        } else {
+                            // No hubo respuesta: servidor apagado, IP equivocada o sin red
+                            errMsg = "No se pudo conectar con " + url + ". Revisa que XAMPP esté encendido y la IP en local.properties";
                         }
                         Log.e(TAG, "Error guardando perfil en BD: " + errMsg);
                         if (callback != null) {
